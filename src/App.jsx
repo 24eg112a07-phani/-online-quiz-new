@@ -1,223 +1,648 @@
+
 import { useState } from "react";
+import axios from "axios";
+import { motion, AnimatePresence } from "framer-motion";
+import {
+  Brain,
+  Code2,
+  Globe,
+  FlaskConical,
+  Database,
+  Trophy,
+  CheckCircle2,
+  XCircle,
+  ArrowRight,
+  RotateCcw,
+  X,
+  Zap,
+  Target,
+  BookOpen,
+  Sparkles,
+} from "lucide-react";
 import "./App.css";
+
+const API_URL = "http://localhost:5000/api/questions";
+
+const categories = [
+  {
+    name: "Programming",
+    description: "Test your coding knowledge",
+    icon: Code2,
+    color: "purple",
+  },
+  {
+    name: "General Knowledge",
+    description: "Explore the world around you",
+    icon: Globe,
+    color: "pink",
+  },
+  {
+    name: "Science",
+    description: "Discover scientific facts",
+    icon: FlaskConical,
+    color: "blue",
+  },
+  {
+    name: "Data Structures",
+    description: "Challenge your logic",
+    icon: Database,
+    color: "orange",
+  },
+];
+
+const features = [
+  {
+    icon: Zap,
+    title: "Quick Challenges",
+    description: "Practice with engaging multiple-choice quizzes.",
+  },
+  {
+    icon: Target,
+    title: "Track Your Score",
+    description: "See how well you perform after every quiz.",
+  },
+  {
+    icon: BookOpen,
+    title: "Learn Every Day",
+    description: "Build your knowledge one question at a time.",
+  },
+];
 
 function App() {
   const [started, setStarted] = useState(false);
+  const [questions, setQuestions] = useState([]);
+  const [currentQuestion, setCurrentQuestion] = useState(0);
+  const [selectedAnswer, setSelectedAnswer] = useState("");
+  const [score, setScore] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [finished, setFinished] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState("");
+
+  const startQuiz = async (category = "") => {
+    setStarted(true);
+    setLoading(true);
+    setError("");
+    setQuestions([]);
+    setCurrentQuestion(0);
+    setSelectedAnswer("");
+    setScore(0);
+    setFinished(false);
+    setSelectedCategory(category);
+
+    try {
+      const response = await axios.get(API_URL, {
+        params: category ? { category } : {},
+      });
+
+      const fetchedQuestions = response.data?.questions;
+
+      if (!Array.isArray(fetchedQuestions) || fetchedQuestions.length === 0) {
+        setError(
+          category
+            ? `No questions are available for ${category} yet. Please try another category.`
+            : "No questions are available right now."
+        );
+        return;
+      }
+
+      // Validate question data before starting the quiz.
+      const validQuestions = fetchedQuestions.filter(
+        (question) =>
+          question &&
+          typeof question.question === "string" &&
+          Array.isArray(question.options) &&
+          question.options.length > 0 &&
+          typeof question.answer === "string"
+      );
+
+      if (validQuestions.length === 0) {
+        setError("The server returned questions in an unexpected format.");
+        return;
+      }
+
+      setQuestions(validQuestions);
+    } catch (err) {
+      console.error("Quiz loading error:", err);
+
+      setError(
+        "Unable to load questions. Make sure your backend is running on http://localhost:5000."
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const closeQuiz = () => {
+    setStarted(false);
+    setQuestions([]);
+    setCurrentQuestion(0);
+    setSelectedAnswer("");
+    setScore(0);
+    setError("");
+    setFinished(false);
+    setLoading(false);
+    setSelectedCategory("");
+  };
+
+  const handleNextQuestion = () => {
+    if (selectedAnswer === "" || !questions[currentQuestion]) {
+      return;
+    }
+
+    const current = questions[currentQuestion];
+    const updatedScore =
+      score + (selectedAnswer === current.answer ? 1 : 0);
+
+    setScore(updatedScore);
+    setSelectedAnswer("");
+
+    if (currentQuestion < questions.length - 1) {
+      setCurrentQuestion((previous) => previous + 1);
+    } else {
+      setFinished(true);
+    }
+  };
+
+  const current = questions[currentQuestion];
 
   return (
     <div className="app">
-      {/* Navigation Bar */}
-      <nav className="navbar">
-        <div className="logo">
-          <span>⚡</span> QuizPulse
-        </div>
+      {/* Navigation */}
+      <header className="navbar">
+        <a href="#home" className="logo">
+          <span className="logo-icon">
+            <Brain size={25} />
+          </span>
+          <span>
+            Quiz<span className="logo-highlight">Pulse</span>
+          </span>
+        </a>
 
-        <div className="nav-links">
+        <nav className="nav-links">
           <a href="#home">Home</a>
           <a href="#categories">Categories</a>
           <a href="#features">Features</a>
           <a href="#about">About</a>
-        </div>
+        </nav>
 
-        <button
-          className="nav-button"
-          onClick={() => setStarted(true)}
-        >
-          Start Quiz
+        <button className="nav-button" onClick={() => startQuiz()}>
+          Start Quiz <ArrowRight size={17} />
         </button>
-      </nav>
+      </header>
 
-      {/* Hero Section */}
-      <section className="hero" id="home">
-        <div className="hero-content">
-          <div className="badge">
-            ✨ Test your knowledge
-          </div>
-
-          <h1>
-            Learn.
-            <span> Challenge.</span>
-            <br />
-            Conquer.
-          </h1>
-
-          <p>
-            Challenge yourself with exciting quizzes,
-            improve your knowledge, and discover how much
-            you really know.
-          </p>
-
-          <div className="hero-buttons">
-            <button
-              className="primary-button"
-              onClick={() => setStarted(true)}
-            >
-              Start Quiz 🚀
-            </button>
-
-            <a href="#categories" className="secondary-button">
-              Explore Categories →
-            </a>
-          </div>
-
-          <div className="stats">
-            <div>
-              <strong>100+</strong>
-              <span>Questions</span>
+      <main>
+        {/* Hero section */}
+        <section className="hero section" id="home">
+          <motion.div
+            className="hero-content"
+            initial={{ opacity: 0, x: -35 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.7 }}
+          >
+            <div className="eyebrow">
+              <Sparkles size={16} />
+              LEARN SOMETHING NEW TODAY
             </div>
 
-            <div>
-              <strong>4</strong>
-              <span>Categories</span>
+            <h1>
+              Learn. Challenge.
+              <span className="gradient-text"> Conquer.</span>
+            </h1>
+
+            <p className="hero-description">
+              Turn your curiosity into knowledge. Challenge yourself with
+              interactive quizzes, explore new topics, and celebrate every
+              achievement.
+            </p>
+
+            <div className="hero-actions">
+              <button
+                className="primary-button"
+                onClick={() => startQuiz()}
+              >
+                Start Your Quiz <ArrowRight size={18} />
+              </button>
+
+              <a href="#categories" className="secondary-button">
+                Explore Categories
+              </a>
             </div>
 
-            <div>
-              <strong>∞</strong>
-              <span>Fun</span>
+            <div className="hero-stats">
+              <div>
+                <strong>{categories.length}</strong>
+                <span>Categories</span>
+              </div>
+
+              <div className="stat-divider" />
+
+              <div>
+                <strong>{questions.length || 5}+</strong>
+                <span>Quiz questions</span>
+              </div>
+
+              <div className="stat-divider" />
+
+              <div>
+                <strong>100%</strong>
+                <span>Fun learning</span>
+              </div>
             </div>
-          </div>
-        </div>
+          </motion.div>
 
-        {/* Quiz Card Animation */}
-        <div className="hero-visual">
-          <div className="floating-shape shape-one"></div>
-          <div className="floating-shape shape-two"></div>
-
-          <div className="quiz-card">
-            <div className="quiz-top">
-              <span>Question 1 of 10</span>
-              <span className="timer">⏱ 30s</span>
+          {/* Preview card */}
+          <motion.div
+            className="hero-visual"
+            initial={{ opacity: 0, scale: 0.85, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            transition={{ duration: 0.8, delay: 0.2 }}
+          >
+            <div className="floating-card float-one">
+              <Trophy size={20} />
+              <span>Keep learning!</span>
             </div>
 
-            <div className="progress">
-              <div className="progress-bar"></div>
+            <div className="hero-quiz-card">
+              <div className="preview-top">
+                <span className="preview-label">
+                  <span className="live-dot" /> QUIZ PREVIEW
+                </span>
+                <Brain size={23} />
+              </div>
+
+              <div className="preview-progress">
+                <span />
+              </div>
+
+              <p className="preview-question">
+                Ready to challenge yourself?
+              </p>
+
+              <h3>How much do you know?</h3>
+
+              <div className="preview-option">
+                <span>A</span> Explore new topics
+              </div>
+
+              <div className="preview-option">
+                <span>B</span> Test your knowledge
+              </div>
+
+              <div className="preview-option">
+                <span>C</span> Learn something new
+              </div>
+
+              <button
+                className="preview-button"
+                onClick={() => startQuiz()}
+              >
+                Let's Play <ArrowRight size={17} />
+              </button>
             </div>
 
-            <h3>What does HTML stand for?</h3>
+            <div className="floating-card float-two">
+              <Sparkles size={19} />
+              <span>Knowledge is power</span>
+            </div>
+          </motion.div>
+        </section>
 
-            <div className="option">A. Hyper Text Markup Language</div>
-            <div className="option">B. High Tech Modern Language</div>
-            <div className="option">C. Hyperlink Text Management</div>
-            <div className="option">D. Home Tool Markup Language</div>
+        {/* Categories */}
+        <section className="categories-section section" id="categories">
+          <div className="section-heading">
+            <span className="section-tag">EXPLORE AND PLAY</span>
 
-            <button className="next-button">
-              Next Question →
-            </button>
-          </div>
-        </div>
-      </section>
+            <h2>
+              Choose Your <span className="gradient-text">Challenge</span>
+            </h2>
 
-      {/* Categories */}
-      <section className="categories" id="categories">
-        <div className="section-title">
-          <span>EXPLORE</span>
-          <h2>Choose Your Challenge</h2>
-          <p>Pick a category and start testing your knowledge.</p>
-        </div>
-
-        <div className="category-grid">
-          <div className="category-card purple">
-            <div className="category-icon">💻</div>
-            <h3>Programming</h3>
-            <p>Test your coding knowledge.</p>
-            <span>25 Questions →</span>
+            <p>Pick your favorite subject and see how much you know.</p>
           </div>
 
-          <div className="category-card blue">
-            <div className="category-icon">🌎</div>
-            <h3>General Knowledge</h3>
-            <p>How much do you know about the world?</p>
-            <span>25 Questions →</span>
+          <div className="category-grid">
+            {categories.map((category, index) => {
+              const Icon = category.icon;
+
+              return (
+                <motion.div
+                  className={`category-card ${category.color}`}
+                  key={category.name}
+                  initial={{ opacity: 0, y: 25 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ duration: 0.45, delay: index * 0.1 }}
+                  whileHover={{ y: -8 }}
+                >
+                  <div className="category-icon">
+                    <Icon size={29} />
+                  </div>
+
+                  <h3>{category.name}</h3>
+                  <p>{category.description}</p>
+
+                  <button
+                    className="category-button"
+                    onClick={() => startQuiz(category.name)}
+                  >
+                    Start Challenge <ArrowRight size={17} />
+                  </button>
+                </motion.div>
+              );
+            })}
           </div>
+        </section>
 
-          <div className="category-card green">
-            <div className="category-icon">🔬</div>
-            <h3>Science</h3>
-            <p>Explore the world of science.</p>
-            <span>25 Questions →</span>
-          </div>
+        {/* Features */}
+        <section className="features-section section" id="features">
+          <div className="section-heading">
+            <span className="section-tag">WHY QUIZPULSE?</span>
 
-          <div className="category-card orange">
-            <div className="category-icon">🧠</div>
-            <h3>Data Structures</h3>
-            <p>Challenge your programming skills.</p>
-            <span>25 Questions →</span>
-          </div>
-        </div>
-      </section>
+            <h2>
+              Make Learning <span className="gradient-text">Exciting</span>
+            </h2>
 
-      {/* Features */}
-      <section className="features" id="features">
-        <div className="section-title">
-          <span>WHY QUIZPULSE?</span>
-          <h2>Learn While You Play</h2>
-        </div>
-
-        <div className="feature-grid">
-          <div className="feature">
-            <div>⚡</div>
-            <h3>Fast & Interactive</h3>
-            <p>Enjoy a smooth and interactive quiz experience.</p>
-          </div>
-
-          <div className="feature">
-            <div>🏆</div>
-            <h3>Track Your Score</h3>
-            <p>See your results and improve your performance.</p>
-          </div>
-
-          <div className="feature">
-            <div>🎯</div>
-            <h3>Multiple Categories</h3>
-            <p>Choose from different topics and challenges.</p>
-          </div>
-        </div>
-      </section>
-
-      {/* About */}
-      <section className="about" id="about">
-        <h2>Ready to test yourself?</h2>
-        <p>
-          Start the quiz and see how high you can score!
-        </p>
-
-        <button
-          className="primary-button"
-          onClick={() => setStarted(true)}
-        >
-          Start Quiz 🚀
-        </button>
-      </section>
-
-      {/* Footer */}
-      <footer>
-        <div className="logo">
-          <span>⚡</span> QuizPulse
-        </div>
-
-        <p>© 2026 QuizPulse. Learn. Challenge. Conquer.</p>
-      </footer>
-
-      {/* Start Message */}
-      {started && (
-        <div className="start-overlay">
-          <div className="start-box">
-            <div className="success-icon">🎉</div>
-            <h2>Quiz is Ready!</h2>
             <p>
-              Our next step will be adding the actual quiz
-              questions, timer, score and results.
+              A simple and engaging way to test yourself and improve every day.
+            </p>
+          </div>
+
+          <div className="features-grid">
+            {features.map((feature, index) => {
+              const Icon = feature.icon;
+
+              return (
+                <motion.div
+                  className="feature-card"
+                  key={feature.title}
+                  initial={{ opacity: 0, y: 20 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ delay: index * 0.12 }}
+                >
+                  <div className="feature-icon">
+                    <Icon size={25} />
+                  </div>
+
+                  <h3>{feature.title}</h3>
+                  <p>{feature.description}</p>
+                </motion.div>
+              );
+            })}
+          </div>
+        </section>
+
+        {/* About */}
+        <section className="about-section section" id="about">
+          <div className="about-content">
+            <span className="section-tag">ABOUT QUIZPULSE</span>
+
+            <h2>
+              Your Knowledge.
+              <br />
+              Your <span className="gradient-text">Journey.</span>
+            </h2>
+
+            <p>
+              QuizPulse is an interactive quiz platform designed to make
+              learning enjoyable. Choose a topic, answer questions, check your
+              score, and keep challenging yourself.
             </p>
 
             <button
               className="primary-button"
-              onClick={() => setStarted(false)}
+              onClick={() => startQuiz()}
             >
-              Continue
+              Start Learning <ArrowRight size={18} />
             </button>
           </div>
-        </div>
-      )}
+
+          <div className="about-visual">
+            <div className="about-circle">
+              <Brain size={75} />
+              <span>Think. Learn. Grow.</span>
+            </div>
+          </div>
+        </section>
+      </main>
+
+      {/* Footer */}
+      <footer className="footer">
+        <a href="#home" className="logo">
+          <span className="logo-icon">
+            <Brain size={23} />
+          </span>
+
+          <span>
+            Quiz<span className="logo-highlight">Pulse</span>
+          </span>
+        </a>
+
+        <p>Learn something new. One question at a time.</p>
+
+        <span className="footer-copy">
+          © {new Date().getFullYear()} QuizPulse
+        </span>
+      </footer>
+
+      {/* Quiz window */}
+      <AnimatePresence>
+        {started && (
+          <motion.div
+            className="quiz-overlay"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
+            <motion.div
+              className="quiz-box"
+              initial={{ opacity: 0, scale: 0.9, y: 25 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              transition={{ duration: 0.25 }}
+            >
+              <button
+                type="button"
+                className="close-quiz"
+                onClick={closeQuiz}
+                aria-label="Close quiz"
+              >
+                <X size={22} />
+              </button>
+
+              {loading ? (
+                <div className="quiz-message">
+                  <div className="loading-spinner" />
+                  <h2>Preparing Your Quiz...</h2>
+                  <p>Getting your questions ready. Just a moment!</p>
+                </div>
+              ) : error ? (
+                <div className="quiz-message">
+                  <XCircle size={48} className="error-icon" />
+                  <h2>Unable to Start Quiz</h2>
+                  <p>{error}</p>
+
+                  <button
+                    type="button"
+                    className="primary-button"
+                    onClick={() => startQuiz(selectedCategory)}
+                  >
+                    Try Again <RotateCcw size={17} />
+                  </button>
+
+                  <button
+                    type="button"
+                    className="secondary-button"
+                    onClick={closeQuiz}
+                  >
+                    Back to Home
+                  </button>
+                </div>
+              ) : finished ? (
+                <div className="quiz-result">
+                  <div className="result-trophy">
+                    <Trophy size={48} />
+                  </div>
+
+                  <span className="section-tag">QUIZ COMPLETED</span>
+
+                  <h2>
+                    {score === questions.length
+                      ? "Perfect Score!"
+                      : score >= questions.length / 2
+                      ? "Great Job!"
+                      : "Keep Practicing!"}
+                  </h2>
+
+                  <p className="result-description">
+                    {selectedCategory
+                      ? `${selectedCategory} challenge completed!`
+                      : "You have completed your quiz!"}
+                  </p>
+
+                  <div className="score-circle">
+                    <strong>
+                      {score}/{questions.length}
+                    </strong>
+                    <span>Correct answers</span>
+                  </div>
+
+                  <div className="result-details">
+                    <div>
+                      <CheckCircle2 size={20} />
+                      <span>Correct: {score}</span>
+                    </div>
+
+                    <div>
+                      <XCircle size={20} />
+                      <span>
+                        Incorrect: {questions.length - score}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="result-actions">
+                    <button
+                      type="button"
+                      className="primary-button"
+                      onClick={() => startQuiz(selectedCategory)}
+                    >
+                      Play Again <RotateCcw size={17} />
+                    </button>
+
+                    <button
+                      type="button"
+                      className="secondary-button"
+                      onClick={closeQuiz}
+                    >
+                      Back to Home
+                    </button>
+                  </div>
+                </div>
+              ) : current ? (
+                <div className="quiz-content">
+                  <div className="quiz-header">
+                    <div>
+                      <span className="section-tag">
+                        {selectedCategory || "GENERAL QUIZ"}
+                      </span>
+                      <h2>Your Challenge</h2>
+                    </div>
+
+                    <span className="question-counter">
+                      {currentQuestion + 1} / {questions.length}
+                    </span>
+                  </div>
+
+                  <div className="progress">
+                    <div
+                      className="progress-fill"
+                      style={{
+                        width: `${
+                          ((currentQuestion + 1) / questions.length) * 100
+                        }%`,
+                      }}
+                    />
+                  </div>
+
+                  <p className="question-label">
+                    QUESTION {currentQuestion + 1}
+                  </p>
+
+                  <h3 className="question-text">{current.question}</h3>
+
+                  <div className="quiz-options">
+                    {current.options.map((option, index) => (
+                      <button
+                        type="button"
+                        className={`option ${
+                          selectedAnswer === option ? "selected-option" : ""
+                        }`}
+                        key={`${current.id ?? currentQuestion}-${option}`}
+                        onClick={() => setSelectedAnswer(option)}
+                      >
+                        <span className="option-letter">
+                          {["A", "B", "C", "D", "E"][index] ?? index + 1}
+                        </span>
+                        <span>{option}</span>
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="quiz-footer">
+                    <span className="quiz-hint">
+                      Select one answer to continue
+                    </span>
+
+                    <button
+                      type="button"
+                      className="primary-button"
+                      onClick={handleNextQuestion}
+                      disabled={selectedAnswer === ""}
+                    >
+                      {currentQuestion === questions.length - 1
+                        ? "See Results"
+                        : "Next Question"}
+                      <ArrowRight size={17} />
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="quiz-message">
+                  <h2>No question found</h2>
+                  <button
+                    type="button"
+                    className="primary-button"
+                    onClick={closeQuiz}
+                  >
+                    Back to Home
+                  </button>
+                </div>
+              )}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
